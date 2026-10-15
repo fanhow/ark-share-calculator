@@ -1,0 +1,12 @@
+{
+  "calculatorContext": {
+    "schemaVersion": 1,
+    "usdTwd": {"value": null, "unit": "TWD_per_USD", "asOf": null, "source": null},
+    "quotes": [{
+      "symbol": "2330", "market": "TW", "currency": "TWD", "priceType": "close",
+      "price": {"value": null, "unit": "TWD", "asOf": null, "source": null},
+      "arkK9": null
+    }],
+    "targetStockRatio": null
+  }
+}

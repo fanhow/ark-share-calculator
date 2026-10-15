@@ -2,15 +2,53 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="依方舟運算流程，先計算持股配置與布局金額，再換算任意股票股數、整張與零股。">
+  <meta name="description" content="依總資金與方舟顯示的布局金額，換算股票股數、建立布局清單並查看剩餘額度。">
   <meta name="theme-color" content="#17181c"><title>布局運算機 · fanhow</title>
-  <link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./flow.css"><script type="module" src="./app.js"></script><script type="module" src="./flow.js"></script>
+  <link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./flow.css"><script type="module" src="./app.js"></script><script type="module" src="./flow.js"></script><link rel="stylesheet" href="./background.css"><script type="module" src="./background.js"></script><link rel="stylesheet" href="./planner.css"><script type="module" src="./planner-ui.js"></script>
 </head>
 <body>
 <header class="topbar"><a class="brand" href="./"><span class="mark" aria-hidden="true">∑</span> 布局運算機</a><a class="source" href="https://github.com/fanhow/ark-share-calculator">原始碼 ↗</a></header>
 <main>
-  <section class="intro"><p class="eyebrow">FANHOW / ALLOCATION CALCULATOR</p><h1>先看配置，再決定布局。</h1><p>依方舟運算流程重建：持股與現金 → 布局金額 → 每檔股數。</p></section>
-  <nav class="flow-tabs" role="tablist" aria-label="布局試算步驟"><button type="button" class="active" data-step="allocation" role="tab" aria-controls="allocation-step" aria-selected="true"><span>01</span> 風控配置</button><button type="button" data-step="shares" role="tab" aria-controls="shares-step" aria-selected="false"><span>02</span> 位階股數</button></nav>
+  <section class="intro"><p class="eyebrow">FANHOW / ALLOCATION CALCULATOR</p><h1>這檔買幾股，還能布局多少？</h1><p>填入資金與方舟給你的布局金額，選股票，就能換算股數與剩餘額度。</p></section>
+
+  <section class="quick-planner" aria-labelledby="planner-heading">
+    <div class="workspace"><section class="panel input-panel">
+      <div class="section-head"><h2 id="planner-heading">我的布局</h2><button type="button" id="plan-example" class="text-button">看一個例子</button></div>
+      <form id="planner-form" novalidate>
+        <div class="two-columns"><label>總資金<input id="plan-total" inputmode="decimal" placeholder="例如 1000000"></label><label>資金幣別<select id="plan-currency"><option value="TWD">TWD 新台幣</option><option value="USD">USD 美元</option></select></label></div>
+        <div class="two-columns"><label>已占用資金<input id="plan-used" inputmode="decimal" value="0"><small>已有持股／其他用途；都換成上方幣別。若總資金只填可用現金，這裡填 0。</small></label><label>要保留的現金<input id="plan-reserve" inputmode="decimal" value="0"><small>不拿來布局的錢，含預留費用。</small></label></div>
+        <div class="two-columns"><label>方舟顯示的布局金額<input id="plan-fixed" inputmode="decimal" placeholder="填方舟最後給你的金額"><small>使用上方資金幣別；不是百分比。</small></label><label>這筆金額的用途<select id="plan-scope"><option value="">請選擇金額的意思</option><option value="per_stock">每檔各自的布局金額</option><option value="total">本次全部股票的布局總額</option></select></label></div>
+        <label id="plan-count-group" hidden>本次平均分配幾檔？<input id="plan-count" inputmode="numeric" value="1"><small>如需方舟策略 K 調整，請展開下方進階運算。</small></label>
+        <hr>
+        <div class="two-columns"><label>價值區股票代號<input id="plan-symbol" placeholder="例如 2330、AAPL" list="plan-symbols" autocomplete="off" maxlength="20"><datalist id="plan-symbols"></datalist></label><label>市場<select id="plan-market"><option value="TW">台股 · TWD</option><option value="US">美股 · USD</option></select></label></div>
+        <p id="plan-source" class="plan-source">先輸入你要布局的價值區股票。來源有該股價格時會自動帶入；本頁不自行判定價值區。</p>
+        <div class="two-columns"><label>每股價格<input id="plan-price" inputmode="decimal" placeholder="尚無行情，請填買入價格"></label><label>下單單位<select id="plan-step"><option value="1">1 股</option><option value="1000">1,000 股（整張）</option></select></label></div>
+        <label id="plan-fx-group" hidden>1 USD = 幾 TWD？<input id="plan-fx" inputmode="decimal" placeholder="請填採用的匯率"></label>
+        <p id="plan-error" class="portfolio-error" role="alert" hidden></p>
+        <button type="submit" class="calculate-button">計算這檔布局 <span aria-hidden="true">→</span></button>
+      </form>
+    </section>
+    <aside><section class="result-card"><div class="result-top"><h2>這次可布局</h2><span class="badge">依指定金額換算</span></div><p id="plan-stock-label" class="stock-label">輸入條件後顯示</p><p id="plan-shares" class="quantity" aria-live="polite">—<span>股</span></p><p id="plan-units" class="unit-summary">股數依交易單位向下取整</p><div class="result-divider"></div><dl><div><dt>這檔預留價金</dt><dd id="plan-cost">—</dd></div><div><dt>買完還能布局</dt><dd id="plan-after">—</dd></div><div><dt>照相同每檔金額還可安排</dt><dd id="plan-more">—</dd></div></dl><p id="plan-result-note" class="fine-print">以資金上限換算；費用與成交變動請另留現金。</p><button type="button" id="plan-add" class="download" disabled>加入本次布局清單 ＋</button></section>
+    <section class="panel plan-ledger"><h2>本次布局清單</h2><p class="plan-source">加入後會扣除額度，方便繼續選下一檔；清單只留在此頁，重新整理會清空。</p><ul id="plan-list"></ul><dl><div><dt>清單合計預留</dt><dd id="plan-committed">—</dd></div><div><dt>帳戶可用餘額</dt><dd id="plan-available">—</dd></div></dl><p id="plan-ledger-note" class="plan-source"></p></section></aside></div>
+    <p class="plan-footnote">布局金額由你提供方舟顯示值；這裡不重新套用 K，以免重複縮減。若要從持股比例或策略 K 開始算，請展開進階運算。</p>
+  </section>
+  <details class="background-wrapper"><summary>市場背景與每日匯入 <span id="background-compact">排程：台北 08:00／20:00</span></summary><section class="background-panel panel" aria-labelledby="background-heading">
+    <div class="background-heading"><div><p class="eyebrow">MARKET CONTEXT</p><h2 id="background-heading">方舟智慧體背景</h2></div><button id="background-refresh" type="button">更新方舟背景資料 <span aria-hidden="true">↻</span></button></div>
+    <p class="background-intro">讀取智慧體使用的公開摘要，供布局前核對。手動輸入保持原樣；已連動的個股行情會隨來源更新。</p>
+    <div class="background-toolbar"><label for="background-date">核對台股收盤基準日<input id="background-date" type="date"><small>預設台北今天；可改成你要核對的日期，不自動推測休市日。</small></label><div><a href="https://ark-agent.fanhow.chatgpt.site/" target="_blank" rel="noopener noreferrer">開啟方舟智慧體 ↗</a><p>私人網站的修改，須同步發布到公開摘要才會讀到。</p></div></div>
+    <p id="background-status" class="background-status" role="status" data-state="idle">尚未讀取。按下按鈕，取得最新已發布摘要。</p>
+    <div id="background-results" hidden>
+      <p id="background-meta" class="background-meta"></p><h3 id="background-headline" class="background-headline"></h3><p id="background-dates" class="background-dates"></p><p id="background-freshness" class="background-freshness"></p>
+      <div id="background-market" class="background-grid"></div>
+      <details id="background-macro-section" class="background-more"><summary>黃金、原油與其他總經背景</summary><div id="background-macro" class="background-grid"></div></details>
+      <div class="background-transfer"><h3>可帶入試算的資料</h3><p id="background-fields"></p><p id="background-field-warnings" class="background-freshness" hidden></p><button id="background-apply" type="button" disabled>帶入可用的 R／匯率</button><div class="background-quote-row"><label for="background-quotes">個股價格與策略 K<select id="background-quotes"><option value="">來源尚未提供個股資料</option></select></label><button id="background-quote-apply" type="button" disabled>帶入選定標的</button></div><p>按帶入才會覆寫對應欄位。來源日期會一併顯示；沒有策略 K 時仍可用預算換算。</p></div>
+      <a id="background-source-json" class="background-raw" target="_blank" rel="noopener noreferrer">查看本次公開摘要原檔 ↗</a>
+    </div>
+    <p id="background-applied" class="budget-origin" role="status" hidden></p>
+    <details class="background-help"><summary>智慧體需要補哪些資料？</summary><p>最簡操作需要每檔股票代號、市場、股價與報價時點；跨幣別再加 USD/TWD 匯率。方舟布局金額目前手動輸入。進階運算才需要目標比例 R／策略 K。一般 KD 與損益門檻不會當作方舟策略值。</p><p>私人持股與現金不放入公開摘要，目前由你手動填寫。</p><a href="./BACKGROUND-FEED.md" target="_blank" rel="noopener noreferrer">查看可交給智慧體的欄位規格 ↗</a> · <a href="./calculator-context.example.json" download>下載欄位範本 JSON ↓</a></details>
+  </section>
+  </details>
+  <details id="advanced-calculator" class="advanced-wrapper"><summary>進階：從持股比例算布局額／使用策略 K 算股數</summary><nav class="flow-tabs" role="tablist" aria-label="布局試算步驟"><button type="button" class="active" data-step="allocation" role="tab" aria-controls="allocation-step" aria-selected="true"><span>01</span> 風控配置</button><button type="button" data-step="shares" role="tab" aria-controls="shares-step" aria-selected="false"><span>02</span> 位階股數</button></nav>
   <p id="flow-caption" class="flow-caption">01 / 先決定本次要布局多少資金</p>
   <section id="allocation-step" role="tabpanel" aria-label="風控配置">
     <div class="allocation-grid">
@@ -61,6 +99,7 @@
   </div>
   <section class="explanation"><div><p class="eyebrow">HOW IT WORKS</p><h2>從資金到股數，<br>每一步都看得到。</h2></div><div><details open><summary>預算換算怎麼算？</summary><p><code>股數 = 向下取交易單位（A ÷ N ÷ 每股價格）</code></p><p>A 是總布局預算，N 是這次分配檔數。跨幣別時先把每股價格換成預算幣別。這是資金換算，不判斷股票是否值得買。</p></details><details><summary>方舟股數公式怎麼算？</summary><p><code>公式股數 = 向下截斷［A ÷（N × 每股價格 × max(1, K9)）］</code></p><p>例如總預算 100,000、5 檔、每股 50、策略 K9 = 4，公式得 100 股，價金 5,000。相同條件的預算換算則為 400 股。</p><p>此處只重建可核對的股數算式。價值區入選規則、策略 K9 與持股水位建議的生成公式仍有缺口。一般圖表 K/D 與策略 K9 尚未證明相等。</p></details><details><summary>股、張與美股零碎股有什麼不同？</summary><p>台股一般股票以 1,000 股換算 1 張；此頁會同時顯示整張與剩餘零股。若僅買整張，選 1,000 股為交易單位；其他商品請自行核對單位。</p><p>美股預設以 1 股計算，可依券商支援程度選 0.01 股或自訂單位。方舟公式本身的美股重建值只有兩位股數，不會因更小的下單單位而增加精度。</p><p><a href="https://www.twse.com.tw/zh/products/system/trading.html#sec04">證交所零股交易資訊 ↗</a></p></details><details><summary>不知道策略 K(9) 時怎麼辦？</summary><p>使用「預算換算」，自行決定願意分配的預算。方舟公式模式必須提供策略 K(9)，不會把空白當作 1，也不會自動用日線／週線 KD 代替。它能回答資金可換算幾股，不能補造尚未知曉的策略訊號。</p></details></div></section>
   </section>
-</main><footer><span>fanhow · 獨立研究工具</span><span>公式研究歸檔：2026-10-15 · v1.1.0</span></footer>
+  </details>
+</main><footer><span>fanhow · 獨立研究工具</span><span>公式研究歸檔：2026-10-15 · v1.2.0</span></footer>
 <noscript><p class="noscript">此計算器需要 JavaScript。請啟用後重新開啟。</p></noscript>
 </body></html>

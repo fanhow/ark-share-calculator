@@ -1,0 +1,13 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {capital,planStock} from '../planner.js';
+const base={total:'1000000',used:'600000',reserve:'100000',currency:'TWD',symbol:'2330',market:'TW',scope:'per_stock',fixed:'20000',count:'5',price:'2490',step:'1',fx:''};
+test('fixed per-stock amount gives units, cost and remaining capital',()=>{const r=planStock(base);assert.equal(r.shares,'8');assert.equal(r.reservedCost,'19920');assert.equal(r.availableAfter,'280080');assert.equal(r.moreFullStocks,'14');});
+test('total deployment amount is divided only when explicitly selected',()=>{const r=planStock({...base,scope:'total',fixed:'100000',count:'5'});assert.equal(r.shares,'8');assert.equal(r.layoutRemaining,'80080');assert.equal(r.moreFullStocks,'4');assert.throws(()=>planStock({...base,scope:''}),/請選擇/);});
+test('plans are subtracted once and can never exceed total deployment cap',()=>{const first=planStock({...base,scope:'total',fixed:'20000',count:'1'});const next=planStock({...base,symbol:'0050',scope:'total',fixed:'20000',count:'1',price:'30'},[first]);assert.equal(next.shares,'2');assert.equal(next.layoutRemaining,'20');});
+test('a repeated symbol cannot silently use a second per-stock allowance',()=>{const first=planStock(base);assert.throws(()=>planStock(base,[first]),/已在清單/);});
+test('capital cap reduces the fixed amount',()=>{const r=planStock({...base,total:'710000'});assert.equal(r.shares,'4');assert.equal(r.availableAfter,'40');assert.equal(r.capped,true);});
+test('no capital, overcommitted or missing prices invalidate results',()=>{assert.throws(()=>planStock({...base,total:'700000'}),/無可布局/);assert.throws(()=>capital({...base,total:'699999'}),/超過總資金/);assert.throws(()=>planStock({...base,price:''}),/每股價格/);});
+test('cross-currency and fractional orders reserve exact cost upward',()=>{const r=planStock({...base,currency:'USD',market:'TW',price:'100',fixed:'20',fx:'32.1'});assert.equal(r.shares,'6');assert.equal(r.reservedCost,'18.7');assert.equal(r.availableAfter,'299981.3');});
+test('each plan requires the same ledger currency',()=>assert.throws(()=>capital(base,[{currency:'USD',reservedCost:'20'}]),/幣別/));
+test('remaining total layout is limited by actual available funds',()=>{const r=planStock({...base,total:'100',used:'0',reserve:'0',scope:'total',fixed:'1000',count:'10',price:'10'});assert.equal(r.availableAfter,'0');assert.equal(r.layoutRemaining,'0');assert.equal(r.moreFullStocks,'0');});
+test('one hundred different prices remain inside available funds',()=>{for(let p=1;p<=100;p++){const r=planStock({...base,total:'700100',price:(p/7).toFixed(8)});assert.ok(Number(r.reservedCost)<=100);assert.ok(Number(r.availableAfter)>=0);}});

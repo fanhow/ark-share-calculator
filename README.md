@@ -33,3 +33,17 @@ python3 -m http.server 8000
 在 http://localhost:8000 查看。測試包含 float32 邊界、K 下界／無上界截限、兩向換匯、股數精度與顯示幣別交叉、整張下單、無效輸入、精確大數及 500 組不超預算檢查。新增配置正負零、R缺值、兩向現金換匯、大小數進位與大數精度測試，共26個單元案例；瀏覽器另驗證步驟連動、失效預算清除及320/375px版面。這些是重建程式與公開工具測試，非實機 App 驗收。
 
 GitHub Pages 從 `main` 根目錄部署；`.nojekyll` 關閉 Jekyll。價格與匯率由使用者提供，不含行情服務或券商連線。
+
+## v1.2.0 — 簡化布局與智慧體背景
+
+首頁改為金額→股數→剩餘額度；可把多檔加入本頁布局清單，避免重複使用資金。每檔與整批金額明確區分，不會默認其中一種。原持股配置、策略K公式保留在進階運算。
+
+來源與缺漏資料規格見 [BACKGROUND-FEED.md](./BACKGROUND-FEED.md)。公開摘要按鈕、開頁讀保存快照及台北08:00／20:00 GitHub Actions已實作；部署需將Pages來源設為GitHub Actions。排程來源不變時保留原匯入時間，失敗保留原快照並記錄錯誤。
+
+```sh
+npm test
+node scripts/import-background.mjs
+node scripts/stage-pages.mjs
+```
+
+只部署根目錄公開網站檔與data JSON；測試、腳本、package、Git資訊不進Pages artifact。沒有外部套件或私人API憑證。

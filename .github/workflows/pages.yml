@@ -1,0 +1,69 @@
+name: Refresh background and publish Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # Asia/Taipei 08:00 and 20:00; GitHub schedules are UTC and may run late.
+    - cron: '0 0,12 * * *'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test calculator and importer
+        run: npm test
+      - name: Import public background
+        id: import
+        continue-on-error: true
+        run: node scripts/import-background.mjs
+      - name: Save background and visible import status
+        run: |
+          if [ -d data ]; then
+            git add -- data
+            if ! git diff --cached --quiet -- data; then
+              git config user.name 'github-actions[bot]'
+              git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+              git commit -m 'Refresh public background and import status'
+              git push origin HEAD:main
+            fi
+          fi
+      - name: Stage public website files
+        run: node scripts/stage-pages.mjs
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+          include-hidden-files: true
+      - name: Deploy Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Report retained snapshot after import failure
+        if: always() && steps.import.outcome == 'failure'
+        run: |
+          echo '::warning title=Public background refresh failed::Any previous successful snapshot was retained. Review the deployment result and data/import-status.json.'
+          echo '### Background refresh warning' >> "$GITHUB_STEP_SUMMARY"
+          echo 'The public source could not be imported. Any previous successful snapshot was retained. When status could be saved, data/import-status.json records the failure. Check the deployment result before assuming the website has updated.' >> "$GITHUB_STEP_SUMMARY"
