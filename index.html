@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="把自訂資金與股票價格換算成股數、整張與零股。支援台股、美股與方舟已還原的股數公式。">
+  <meta name="theme-color" content="#173c35"><title>股數計算器 · fanhow</title>
+  <link rel="stylesheet" href="./styles.css"><script type="module" src="./app.js"></script>
+</head>
+<body>
+<header class="topbar"><a class="brand" href="./"><span class="mark" aria-hidden="true">∑</span> 股數計算器</a><a class="source" href="https://github.com/fanhow/ark-share-calculator">原始碼 ↗</a></header>
+<main>
+  <section class="intro"><p class="eyebrow">FANHOW / POSITION SIZING</p><h1>想買幾股，<br class="mobile-break">先把數字算清楚。</h1><p>輸入任何股票的價格與預算，換算股數、整張與零股。<br>不用等它出現在推薦名單。</p></section>
+  <div class="workspace">
+    <section class="panel input-panel" aria-labelledby="input-heading">
+      <div class="section-head"><h2 id="input-heading">設定這次的買入</h2><button id="example" class="text-button" type="button">填入範例</button></div>
+      <form id="calculator" novalidate>
+        <fieldset class="mode-picker"><legend>計算方式</legend><label><input type="radio" name="mode" value="budget" checked><span><strong>預算換算</strong><small>不知道 K(9) 也能計算</small></span></label><label><input type="radio" name="mode" value="ark"><span><strong>方舟股數公式</strong><small>使用你提供的策略 K(9)</small></span></label></fieldset>
+        <p id="mode-note" class="hint">把預算平均分配到指定檔數，再按每股價格換算。</p>
+        <div class="two-columns"><label>股票代號 <span class="optional">選填</span><input id="symbol" name="symbol" type="text" placeholder="例如 2330、AAPL" maxlength="30" autocomplete="off"><small>作為紀錄名稱，不會自動抓行情。</small></label><label>市場<select id="market" name="market"><option value="TW">台股 · 股價以 TWD 計</option><option value="US">美股 · 股價以 USD 計</option></select></label></div>
+        <div class="two-columns"><label>總布局預算 A<input id="budget" name="budget" inputmode="decimal" placeholder="例如 100000" value="100000" required><small>這次準備分配的資金。</small></label><label>預算幣別<select id="currency" name="currency"><option value="TWD">TWD 新台幣</option><option value="USD">USD 美元</option></select></label></div>
+        <div class="two-columns"><label>分配檔數 N<input id="count" name="count" inputmode="numeric" value="5" required><small>只計算一檔時填 1。</small></label><label>每股價格 <span id="price-currency">TWD</span><input id="price" name="price" inputmode="decimal" value="50" required><small>請填欲買入的價格，非整張價格。</small></label></div>
+        <div id="fx-group" hidden><label>換匯匯率 · 1 USD = 幾 TWD？<input id="fx" name="fx" inputmode="decimal" placeholder="請填實際採用的匯率"><small>只在預算與股價幣別不同時使用，不抓取即時匯率。</small></label></div>
+        <div id="k-group" class="k-group" hidden><label>方舟策略 K(9)<input id="k" name="k" inputmode="decimal" placeholder="填入方舟顯示的策略 K(9)"><small>策略 K(9) 的來源公式尚未確認；不要直接拿一般 KD 的 K 值代替。小於 1 時依已還原公式以 1 計算。</small></label></div>
+        <label>每次可買的交易單位<select id="step-choice" name="stepChoice"><option value="1">1 股 · 可買零股</option><option value="1000">1,000 股 · 只買整張</option><option value="custom">自訂每單位股數</option></select></label>
+        <div id="custom-step-group" hidden><label>每單位股數<input id="custom-step" name="customStep" inputmode="decimal" placeholder="例如 0.001"><small>請依標的與券商規則設定。美股零碎股須由券商支援。</small></label></div>
+        <p id="example-note" class="example-note">目前為假設範例，並非即時行情或買進建議。</p>
+        <button class="calculate-button" type="submit">計算可買股數 <span aria-hidden="true">↗</span></button>
+      </form>
+    </section>
+    <aside class="result-column">
+      <section class="result-card" aria-labelledby="result-heading"><div class="result-top"><h2 id="result-heading">依輸入可買</h2><span id="result-mode" class="badge">預算換算</span></div><p id="stock-label" class="stock-label">自訂標的</p><div aria-live="polite" aria-atomic="true"><p id="result-quantity" class="quantity">—<span>股</span></p><p id="unit-summary" class="unit-summary">填寫左側資料即可計算</p><p id="error" class="error" role="alert" hidden></p></div><div class="result-divider"></div><dl><div><dt>每檔本次分配</dt><dd id="allocated">—</dd></div><div><dt>預估股票價金</dt><dd id="cost">—</dd></div><div><dt>每檔剩餘預算</dt><dd id="remaining">—</dd></div></dl><p id="quote-cost" class="quote-cost"></p><p class="fine-print">未含手續費、稅費與成交滑價。股數會向下取整至所選交易單位；請另留費用空間。</p><button id="download" class="download" type="button" disabled>下載本次試算 CSV ↓</button></section>
+      <section id="model-panel" class="panel formula-result" hidden><h3>方舟公式的重建值</h3><dl><div><dt>公式股數</dt><dd id="model-shares">—</dd></div><div><dt>公式顯示金額</dt><dd id="model-amount">—</dd></div></dl><p>上方「可買股數」會再依交易單位及輸入價格的預算上限向下調整。</p><details><summary>精度與適用範圍</summary><p>重建 Android 1.9.2.0 的正常正值計算路徑：股價轉為 float32，再以精確數值運算；一般台股保留整股、美股保留兩位股數，向下截斷。新台幣金額進位至整元、美元至小數兩位。</p><p>這不是官方產品。未驗證 iPhone 版本、伺服器 K(9) 生成與完整 App 同次輸入輸出。無效輸入會清除結果，不重現 App 的舊快取狀態。</p></details></section>
+      <section class="local-note"><span aria-hidden="true">○</span><p>數值只在這個網頁內運算。<br>不登入帳戶，不儲存輸入，也不傳送試算資料。</p></section>
+    </aside>
+  </div>
+  <section class="explanation"><div><p class="eyebrow">HOW IT WORKS</p><h2>從資金到股數，<br>每一步都看得到。</h2></div><div><details open><summary>預算換算怎麼算？</summary><p><code>股數 = 向下取交易單位（A ÷ N ÷ 每股價格）</code></p><p>A 是總布局預算，N 是這次分配檔數。跨幣別時先把每股價格換成預算幣別。這是資金換算，不判斷股票是否值得買。</p></details><details><summary>方舟股數公式怎麼算？</summary><p><code>公式股數 = 向下截斷［A ÷（N × 每股價格 × max(1, K9)）］</code></p><p>例如總預算 100,000、5 檔、每股 50、策略 K9 = 4，公式得 100 股，價金 5,000。相同條件的預算換算則為 400 股。</p><p>此處只重建可核對的股數算式。價值區入選規則、策略 K9 與持股水位建議的生成公式仍有缺口。一般圖表 K/D 與策略 K9 尚未證明相等。</p></details><details><summary>股、張與美股零碎股有什麼不同？</summary><p>台股一般股票以 1,000 股換算 1 張；此頁會同時顯示整張與剩餘零股。若僅買整張，選 1,000 股為交易單位；其他商品請自行核對單位。</p><p>美股預設以 1 股計算，可依券商支援程度選 0.01 股或自訂單位。方舟公式本身的美股重建值只有兩位股數，不會因更小的下單單位而增加精度。</p><p><a href="https://www.twse.com.tw/zh/trading/trading/odd-lot.html">證交所零股交易資訊 ↗</a></p></details><details><summary>不知道策略 K(9) 時怎麼辦？</summary><p>使用「預算換算」，自行決定願意分配的預算。方舟公式模式必須提供策略 K(9)，不會把空白當作 1，也不會自動用日線／週線 KD 代替。它能回答資金可換算幾股，不能補造尚未知曉的策略訊號。</p></details></div></section>
+</main><footer><span>fanhow · 獨立研究工具</span><span>公式研究歸檔：2026-10-15 · v1.0.0</span></footer>
+<noscript><p class="noscript">此計算器需要 JavaScript。請啟用後重新開啟。</p></noscript>
+</body></html>
