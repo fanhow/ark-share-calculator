@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {calculatePortfolio} from '../portfolio.js';
+const base={currency:'TWD',stockTW:'400',stockUS:'200',cashTWD:'400',cashUSD:'0',ratio:'70',fx:''};
+const c=x=>calculatePortfolio({...base,...x});
+test('positive allocation, reduction, hold and explicit R zero',()=>{
+ const r=c({});assert.equal(r.action,'buy');assert.equal(r.buyBudget,'100');assert.equal(r.targetStock,'700');assert.equal(r.targetCash,'300');
+ assert.equal(c({ratio:'50'}).action,'reduce');assert.equal(c({ratio:'50'}).delta,'-100');assert.equal(c({ratio:'50'}).buyBudget,'0');
+ assert.equal(c({ratio:'60'}).action,'hold');assert.equal(c({ratio:'60'}).buyBudget,'0');
+ assert.equal(c({ratio:'0'}).delta,'-600');assert.equal(c({ratio:'100'}).buyBudget,'400');
+});
+test('missing R is not treated as zero; stale outputs cannot be returned',()=>{assert.throws(()=>c({ratio:''}),/目標持股比例/);for(const ratio of ['-1','101','invalid'])assert.throws(()=>c({ratio}));});
+test('stock fields already share display currency; only native cash is exchanged',()=>{const r=c({stockTW:'1000',stockUS:'2000',cashTWD:'4000',cashUSD:'100',fx:'32',ratio:'50'});assert.equal(r.stock,'3000');assert.equal(r.cash,'7200');assert.equal(r.total,'10200');assert.equal(r.delta,'2100');});
+test('USD percentage half-up 10 and ceiling occur in specified order',()=>{const r=c({currency:'USD',stockTW:'1',stockUS:'0',cashTWD:'0',cashUSD:'0',ratio:'33.3333333333'});assert.equal(r.targetStock,'0.34');assert.equal(r.targetCash,'0.66');assert.equal(r.delta,'-0.66');});
+test('reciprocal FX and displayed USD cash rounding',()=>{const r=c({currency:'USD',stockTW:'10',stockUS:'20',cashTWD:'1',cashUSD:'0',fx:'3',ratio:'50'});assert.equal(r.cash,'0.34');assert.equal(r.targetStock,'15.17');assert.equal(r.targetCash,'15.17');assert.equal(r.delta,'-14.83');});
+test('TWD positive target amount rounds up instead of nearest',()=>{const r=c({stockTW:'0',stockUS:'0',cashTWD:'101',ratio:'50'});assert.equal(r.targetStock,'51');assert.equal(r.targetCash,'50');assert.equal(r.delta,'51');});
+test('zero assets have a defined ratio and no buy action',()=>{const r=c({stockTW:'0',stockUS:'0',cashTWD:'0'});assert.equal(r.total,'0');assert.equal(r.currentPct,'0');assert.equal(r.action,'hold');});
+test('foreign cash requires positive FX, while same-currency cash does not',()=>{assert.equal(c({fx:'bad'}).cash,'400');for(const fx of ['','0','-1','bad'])assert.throws(()=>c({cashUSD:'1',fx}));});
+test('stock display precision and cash presence are explicit input rules',()=>{assert.throws(()=>c({stockTW:'1.2'}),/整元/);assert.throws(()=>c({currency:'USD',stockTW:'1.001'}),/兩位/);assert.throws(()=>c({cashTWD:''}));assert.throws(()=>c({stockUS:'-1'}));});
+test('large stock and cash totals preserve exact integers',()=>{const r=c({stockTW:'9007199254740993',stockUS:'1',cashTWD:'9007199254740994',ratio:'50'});assert.equal(r.total,'18014398509481988');assert.equal(r.targetStock,'9007199254740994');assert.equal(r.delta,'0');});

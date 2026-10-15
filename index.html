@@ -2,14 +2,40 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="把自訂資金與股票價格換算成股數、整張與零股。支援台股、美股與方舟已還原的股數公式。">
-  <meta name="theme-color" content="#173c35"><title>股數計算器 · fanhow</title>
-  <link rel="stylesheet" href="./styles.css"><script type="module" src="./app.js"></script>
+  <meta name="description" content="依方舟運算流程，先計算持股配置與布局金額，再換算任意股票股數、整張與零股。">
+  <meta name="theme-color" content="#17181c"><title>布局運算機 · fanhow</title>
+  <link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./flow.css"><script type="module" src="./app.js"></script><script type="module" src="./flow.js"></script>
 </head>
 <body>
-<header class="topbar"><a class="brand" href="./"><span class="mark" aria-hidden="true">∑</span> 股數計算器</a><a class="source" href="https://github.com/fanhow/ark-share-calculator">原始碼 ↗</a></header>
+<header class="topbar"><a class="brand" href="./"><span class="mark" aria-hidden="true">∑</span> 布局運算機</a><a class="source" href="https://github.com/fanhow/ark-share-calculator">原始碼 ↗</a></header>
 <main>
-  <section class="intro"><p class="eyebrow">FANHOW / POSITION SIZING</p><h1>想買幾股，<br class="mobile-break">先把數字算清楚。</h1><p>輸入任何股票的價格與預算，換算股數、整張與零股。<br>不用等它出現在推薦名單。</p></section>
+  <section class="intro"><p class="eyebrow">FANHOW / ALLOCATION CALCULATOR</p><h1>先看配置，再決定布局。</h1><p>依方舟運算流程重建：持股與現金 → 布局金額 → 每檔股數。</p></section>
+  <nav class="flow-tabs" role="tablist" aria-label="布局試算步驟"><button type="button" class="active" data-step="allocation" role="tab" aria-controls="allocation-step" aria-selected="true"><span>01</span> 風控配置</button><button type="button" data-step="shares" role="tab" aria-controls="shares-step" aria-selected="false"><span>02</span> 位階股數</button></nav>
+  <p id="flow-caption" class="flow-caption">01 / 先決定本次要布局多少資金</p>
+  <section id="allocation-step" role="tabpanel" aria-label="風控配置">
+    <div class="allocation-grid">
+      <section class="allocation-overview"><span class="manual-badge">比例由你提供</span><div id="gauge" class="gauge" style="--ratio:0%"><div class="gauge-core"><span>目標持股配置</span><strong><b id="gauge-value">—</b><small>%</small></strong><span class="gauge-source">方舟顯示值 / 自訂目標</span></div></div><p class="ratio-explainer">填入方舟顯示的持股配置比例，或自行設定。<br>本頁不產生方舟的即時配置建議。</p><div class="allocation-total"><span>持股＋現金總額</span><strong id="total-assets">—</strong></div></section>
+      <section class="panel portfolio-inputs"><div class="section-head"><h2>持股總市值與現金</h2><button type="button" id="portfolio-example" class="text-button">填入示範</button></div>
+        <form id="portfolio-form" novalidate>
+          <div class="two-columns"><label>試算幣別<select id="portfolio-currency"><option value="TWD">TWD 新台幣</option><option value="USD">USD 美元</option></select></label><label>目標持股比例 R<input id="target-ratio" inputmode="decimal" placeholder="例如 70（代表70%）"><small>0%–100%，需自行提供。</small></label></div>
+          <div class="two-columns"><label>台股庫存 <span class="optional">以 <span class="stock-currency">TWD</span> 計價</span><input id="stock-tw" inputmode="decimal" placeholder="填總市值"><small>填目前市值，不是買入成本。</small></label><label>美股庫存 <span class="optional">以 <span class="stock-currency">TWD</span> 計價</span><input id="stock-us" inputmode="decimal" placeholder="沒有則填0"><small>已換成試算幣別，不再換匯。</small></label></div>
+          <label>你持有的台幣現金 <span class="optional">TWD</span><input id="cash-twd" inputmode="decimal" placeholder="沒有則填0"></label>
+          <label class="cash-label">你持有的美元現金 <span class="optional">USD</span><input id="cash-usd" inputmode="decimal" placeholder="沒有則填0"></label>
+          <div id="portfolio-fx-group" hidden><label>現金換匯 · 1 USD = 幾 TWD？<input id="portfolio-fx" inputmode="decimal" placeholder="填採用的匯率"><small>只將不同幣別的現金換成試算幣別。</small></label></div>
+          <p id="portfolio-example-note" class="example-note">請填入自己的條件，或按「填入示範」。網站不保存或傳送這些數值。</p>
+          <p id="portfolio-error" class="portfolio-error" role="alert" hidden></p>
+        </form>
+      </section>
+    </div>
+    <section class="configuration-panel panel" aria-label="配置比較及布局金額">
+      <div class="allocation-row"><div class="bar-labels"><h3>現在持股 <span class="stock-currency">TWD</span></h3><span>目前現金</span></div><div class="allocation-bar current"><div id="current-bar" class="bar-fill"></div><strong id="current-stock">—</strong><span id="current-percent">—</span><strong id="current-cash">—</strong></div></div>
+      <div class="allocation-row"><div class="bar-labels target-labels"><h3>目標持股 <span class="stock-currency">TWD</span></h3><span>目標閒置資金</span></div><div class="allocation-bar target"><div id="target-bar" class="bar-fill"></div><strong id="target-stock">—</strong><span id="target-percent">—</span><strong id="target-cash">—</strong></div></div>
+      <div id="allocation-action" class="allocation-action" aria-live="polite"><span id="action-label">請補齊配置條件</span><strong id="action-amount">—</strong></div><p id="action-note" class="action-note">設定目標比例後，會顯示本次布局或調節金額。</p>
+      <button id="continue-shares" class="continue-button" type="button" disabled>帶入布局金額，前往位階股數 <span aria-hidden="true">→</span></button>
+      <details class="allocation-method"><summary>這一步如何計算？</summary><p>總資金 = 兩項庫存市值＋換匯後現金。目標持股 = 總資金 × 目標比例；布局／調節差額 = 目前現金 − 目標閒置資金。正值可布局、負值需調節、零為維持。</p><p>依已還原的數值路徑，換匯現金與目標持股金額向上進位至台幣整元／美元小數兩位；目標現金向零取兩位，差額再依幣別取整。庫存直接填所選幣別的整元／兩位顯示值。R 是手動提供的目標，不是本頁推算的投資訊號。</p><p>這是 Android 1.9.2.0 算式重建，iPhone 畫面樣本與重建的目標持股有 1 元差，原因待查，不能視為逐項一致。方舟的完整即時比例生成尚未還原。本頁沒有「全球散戶、外資情緒」等即時訊號來源。計算未含費用、成交變動與個別庫存的原始取整差異。</p></details>
+    </section>
+  </section>
+  <section id="shares-step" role="tabpanel" aria-label="位階股數" hidden><p id="budget-origin" class="budget-origin" hidden></p>
   <div class="workspace">
     <section class="panel input-panel" aria-labelledby="input-heading">
       <div class="section-head"><h2 id="input-heading">設定這次的買入</h2><button id="example" class="text-button" type="button">填入範例</button></div>
@@ -29,11 +55,12 @@
     </section>
     <aside class="result-column">
       <section class="result-card" aria-labelledby="result-heading"><div class="result-top"><h2 id="result-heading">依輸入可買</h2><span id="result-mode" class="badge">預算換算</span></div><p id="stock-label" class="stock-label">自訂標的</p><div aria-live="polite" aria-atomic="true"><p id="result-quantity" class="quantity">—<span>股</span></p><p id="unit-summary" class="unit-summary">填寫左側資料即可計算</p><p id="error" class="error" role="alert" hidden></p></div><div class="result-divider"></div><dl><div><dt>每檔本次分配</dt><dd id="allocated">—</dd></div><div><dt>預估股票價金</dt><dd id="cost">—</dd></div><div><dt>每檔剩餘預算</dt><dd id="remaining">—</dd></div></dl><p id="quote-cost" class="quote-cost"></p><p class="fine-print">未含手續費、稅費與成交滑價。股數會向下取整至所選交易單位；請另留費用空間。</p><button id="download" class="download" type="button" disabled>下載本次試算 CSV ↓</button></section>
-      <section id="model-panel" class="panel formula-result" hidden><h3>方舟公式的重建值</h3><dl><div><dt>公式股數</dt><dd id="model-shares">—</dd></div><div><dt>公式顯示金額</dt><dd id="model-amount">—</dd></div></dl><p>上方「可買股數」會再依交易單位及輸入價格的預算上限向下調整。</p><details><summary>精度與適用範圍</summary><p>重建 Android 1.9.2.0 的正常正值計算路徑：股價轉為 float32，再以精確數值運算；一般台股保留整股、美股保留兩位股數，向下截斷。新台幣金額進位至整元、美元至小數兩位。</p><p>這不是官方產品。未驗證 iPhone 版本、伺服器 K(9) 生成與完整 App 同次輸入輸出。無效輸入會清除結果，不重現 App 的舊快取狀態。</p></details></section>
+      <section id="model-panel" class="panel formula-result" hidden><h3>方舟公式的重建值</h3><dl><div><dt>公式股數</dt><dd id="model-shares">—</dd></div><div><dt>公式顯示金額</dt><dd id="model-amount">—</dd></div></dl><p>上方「可買股數」會再依交易單位及輸入價格的預算上限向下調整。</p><details><summary>精度與適用範圍</summary><p>重建 Android 1.9.2.0 的正常正值計算路徑：股價轉為 float32，再以精確數值運算；一般台股保留整股、美股保留兩位股數，向下截斷。新台幣金額進位至整元、美元至小數兩位。</p><p>這不是官方產品。已觀察 iPhone 畫面，但其版本與原始輸入精度尚未確認；伺服器 K(9) 生成及完整 App 同次輸入輸出仍待驗證。無效輸入會清除結果，不重現 App 的舊快取狀態。</p></details></section>
       <section class="local-note"><span aria-hidden="true">○</span><p>數值只在這個網頁內運算。<br>不登入帳戶，不儲存輸入，也不傳送試算資料。</p></section>
     </aside>
   </div>
   <section class="explanation"><div><p class="eyebrow">HOW IT WORKS</p><h2>從資金到股數，<br>每一步都看得到。</h2></div><div><details open><summary>預算換算怎麼算？</summary><p><code>股數 = 向下取交易單位（A ÷ N ÷ 每股價格）</code></p><p>A 是總布局預算，N 是這次分配檔數。跨幣別時先把每股價格換成預算幣別。這是資金換算，不判斷股票是否值得買。</p></details><details><summary>方舟股數公式怎麼算？</summary><p><code>公式股數 = 向下截斷［A ÷（N × 每股價格 × max(1, K9)）］</code></p><p>例如總預算 100,000、5 檔、每股 50、策略 K9 = 4，公式得 100 股，價金 5,000。相同條件的預算換算則為 400 股。</p><p>此處只重建可核對的股數算式。價值區入選規則、策略 K9 與持股水位建議的生成公式仍有缺口。一般圖表 K/D 與策略 K9 尚未證明相等。</p></details><details><summary>股、張與美股零碎股有什麼不同？</summary><p>台股一般股票以 1,000 股換算 1 張；此頁會同時顯示整張與剩餘零股。若僅買整張，選 1,000 股為交易單位；其他商品請自行核對單位。</p><p>美股預設以 1 股計算，可依券商支援程度選 0.01 股或自訂單位。方舟公式本身的美股重建值只有兩位股數，不會因更小的下單單位而增加精度。</p><p><a href="https://www.twse.com.tw/zh/products/system/trading.html#sec04">證交所零股交易資訊 ↗</a></p></details><details><summary>不知道策略 K(9) 時怎麼辦？</summary><p>使用「預算換算」，自行決定願意分配的預算。方舟公式模式必須提供策略 K(9)，不會把空白當作 1，也不會自動用日線／週線 KD 代替。它能回答資金可換算幾股，不能補造尚未知曉的策略訊號。</p></details></div></section>
-</main><footer><span>fanhow · 獨立研究工具</span><span>公式研究歸檔：2026-10-15 · v1.0.0</span></footer>
+  </section>
+</main><footer><span>fanhow · 獨立研究工具</span><span>公式研究歸檔：2026-10-15 · v1.1.0</span></footer>
 <noscript><p class="noscript">此計算器需要 JavaScript。請啟用後重新開啟。</p></noscript>
 </body></html>
